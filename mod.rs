@@ -1,16 +1,14 @@
-mod html;
-mod style;
+mod html_buffer;
 
-pub use html::Html;
-pub use style::Style;
+pub use html_buffer::HtmlBuffer;
 
 pub struct Template<'a> {
-    html: &'a mut Html,
+    html: &'a mut HtmlBuffer,
 }
 
 impl<'a> Template<'a> {
     /// Create a new Template from an Html buffer
-    pub fn new(html: &'a mut Html) -> Self {
+    pub fn new(html: &'a mut HtmlBuffer) -> Self {
         Self { html }
     }
 
@@ -70,11 +68,11 @@ impl<'a> Template<'a> {
 /// Represents an HTML element that is being built
 /// This holds a mutable reference to the Html buffer and writes to it directly
 pub struct Element<'a> {
-    html: &'a mut Html,
+    html: &'a mut HtmlBuffer,
 }
 
 impl<'a> Element<'a> {
-    pub fn new(html: &'a mut Html) -> Self {
+    pub fn new(html: &'a mut HtmlBuffer) -> Self {
         Self { html }
     }
 
@@ -87,12 +85,6 @@ impl<'a> Element<'a> {
     /// Add an id attribute
     pub fn id(self, id: &str) -> Self {
         self.html.attr("id", id);
-        self
-    }
-
-    pub fn style(self, style: Style) -> Self {
-        self.html.attr("class", "hello");
-
         self
     }
 

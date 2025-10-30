@@ -1,26 +1,40 @@
-use crate::{InternalBuffer, Template};
+use std::marker::PhantomData;
+
+use log::error;
+
+use crate::{InternalBuffer, Template, tags::HtmlTag};
+
+pub trait ElementAttributor {
+    fn attr(self, name: &str, value: &str) -> Self;
+}
 
 /// Represents an HTML element that is being built
 /// This holds a mutable reference to the Html buffer and writes to it directly
-pub struct Element<'a> {
+pub struct Element<'a, Tag> {
     buffer: &'a mut InternalBuffer,
+    _marker: PhantomData<Tag>,
 }
 
-impl<'a> Element<'a> {
+impl<'a, Tag> Element<'a, Tag>
+where
+    Tag: HtmlTag,
+{
     pub fn new(html: &'a mut InternalBuffer) -> Self {
-        Self { buffer: html }
+        Self {
+            buffer: html,
+            _marker: PhantomData,
+        }
     }
 
-    /// Add a value attribute (for inputs)
-    pub fn value(self, value: &str) -> Self {
-        self.buffer.attr("value", value);
+    /// Add a class to the element. Can be called multiple times to add multiple classes.
+    pub fn class(self, class: &str) -> Self {
+        self.buffer.class(class);
         self
     }
 
-    /// Add an id attribute
-    pub fn id(self, id: &str) -> Self {
-        self.buffer.attr("id", id);
-        self
+    /// Add a class to the element if the condition is true. Can be called multiple times to add multiple classes.
+    pub fn class_if(self, condition: bool, class: &str) -> Self {
+        if condition { self.class(class) } else { self }
     }
 
     /// Add text content and close the element
@@ -39,5 +53,25 @@ impl<'a> Element<'a> {
         let mut template = Template::new(self.buffer);
         f(&mut template);
         self.buffer.end_children();
+    }
+
+    pub fn custom_attribute(self, name: &str, value: &str) -> Self {
+        if name == "class" {
+            error!(
+                "tried to set class attribute using `custom_attribute`; this is not permitted because classes are internally buffered; ignoring"
+            );
+        } else {
+            self.buffer.attr(name, value);
+        }
+
+        self
+    }
+}
+
+impl<Tag> ElementAttributor for Element<'_, Tag> {
+    #[inline]
+    fn attr(self, name: &str, value: &str) -> Self {
+        self.buffer.attr(name, value);
+        self
     }
 }

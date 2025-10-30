@@ -63,18 +63,16 @@ impl InternalBuffer {
     }
 
     /// Open a normal element; an element that opens and closes the normal way. This is to be distinguished from void elements, which do not close.
-    pub fn open_normal(&mut self, tag: &str) {
+    pub fn open(&mut self, tag: &str, is_void: bool) {
         self.close_current_tag();
         self.buffer.push_str("<");
         self.buffer.push_str(tag);
-        self.current_tag = CurrentTag::Normal(tag.to_string());
-    }
 
-    pub fn open_void(&mut self, tag: &str) {
-        self.close_current_tag();
-        self.buffer.push_str("<");
-        self.buffer.push_str(tag);
-        self.current_tag = CurrentTag::Void;
+        self.current_tag = if is_void {
+            CurrentTag::Void
+        } else {
+            CurrentTag::Normal(tag.to_string())
+        };
     }
 
     pub fn attr(&mut self, name: &str, value: &str) {
@@ -188,7 +186,7 @@ mod tests {
     #[test]
     fn test_simple_normal_element() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.attr("class", "container");
         assert_eq!(html.into_string(), r#"<div class="container"></div>"#);
     }
@@ -196,7 +194,7 @@ mod tests {
     #[test]
     fn test_void_element_with_attr() {
         let mut html = InternalBuffer::new();
-        html.open_void("input");
+        html.open("input", true);
         html.attr("value", "hello");
         assert_eq!(html.into_string(), r#"<input value="hello">"#);
     }
@@ -204,9 +202,9 @@ mod tests {
     #[test]
     fn test_nested_children() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
-        html.open_void("input");
+        html.open("input", true);
         html.attr("value", "hello");
         html.end_children();
         assert_eq!(html.into_string(), r#"<div><input value="hello"></div>"#);
@@ -215,7 +213,7 @@ mod tests {
     #[test]
     fn test_text_content() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
         html.push_text("Hello, world!");
         html.end_children();
@@ -225,13 +223,13 @@ mod tests {
     #[test]
     fn test_multiple_children() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
-        html.open_normal("h1");
+        html.open("h1", false);
         html.start_children();
         html.push_text("Title");
         html.end_children();
-        html.open_normal("p");
+        html.open("p", false);
         html.start_children();
         html.push_text("Paragraph");
         html.end_children();
@@ -245,7 +243,7 @@ mod tests {
     #[test]
     fn test_multiple_attributes() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.attr("style", "color: red; font-size: 16px;");
         assert_eq!(
             html.into_string(),
@@ -256,14 +254,14 @@ mod tests {
     #[test]
     fn test_auto_close_siblings() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
         // These siblings should auto-close each other
-        html.open_normal("p");
+        html.open("p", false);
         html.attr("class", "first");
-        html.open_normal("p");
+        html.open("p", false);
         html.attr("class", "second");
-        html.open_normal("p");
+        html.open("p", false);
         html.attr("class", "third");
         html.end_children();
         assert_eq!(
@@ -275,11 +273,11 @@ mod tests {
     #[test]
     fn test_void_element_auto_close() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
-        html.open_void("input");
+        html.open("input", true);
         html.attr("value", "test");
-        html.open_normal("span");
+        html.open("span", false);
         html.start_children();
         html.push_text("Label");
         html.end_children();
@@ -293,7 +291,7 @@ mod tests {
     #[test]
     fn test_escape_html_in_text() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
         html.push_text("<script>alert('xss')</script>");
         html.end_children();
@@ -306,7 +304,7 @@ mod tests {
     #[test]
     fn test_escape_attr_value() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.attr("data-value", r#"foo"bar&baz"#);
         assert_eq!(
             html.into_string(),
@@ -317,7 +315,7 @@ mod tests {
     #[test]
     fn test_single_class_on_normal_element() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("container");
         assert_eq!(html.into_string(), r#"<div class="container"></div>"#);
     }
@@ -325,7 +323,7 @@ mod tests {
     #[test]
     fn test_multiple_classes_on_normal_element() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("container");
         html.class("active");
         html.class("primary");
@@ -338,7 +336,7 @@ mod tests {
     #[test]
     fn test_single_class_on_void_element() {
         let mut html = InternalBuffer::new();
-        html.open_void("input");
+        html.open("input", true);
         html.class("form-control");
         assert_eq!(html.into_string(), r#"<input class="form-control">"#);
     }
@@ -346,7 +344,7 @@ mod tests {
     #[test]
     fn test_multiple_classes_on_void_element() {
         let mut html = InternalBuffer::new();
-        html.open_void("input");
+        html.open("input", true);
         html.class("form-control");
         html.class("input-lg");
         html.class("required");
@@ -359,7 +357,7 @@ mod tests {
     #[test]
     fn test_classes_with_attributes_before() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.attr("id", "main");
         html.attr("data-value", "test");
         html.class("container");
@@ -373,7 +371,7 @@ mod tests {
     #[test]
     fn test_classes_with_attributes_after() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("container");
         html.class("active");
         html.attr("id", "main");
@@ -387,7 +385,7 @@ mod tests {
     #[test]
     fn test_classes_mixed_with_attributes() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.attr("id", "main");
         html.class("container");
         html.attr("data-value", "test");
@@ -403,10 +401,10 @@ mod tests {
     #[test]
     fn test_classes_on_nested_elements() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("outer");
         html.start_children();
-        html.open_normal("span");
+        html.open("span", false);
         html.class("inner");
         html.class("highlight");
         html.end_children();
@@ -420,15 +418,15 @@ mod tests {
     #[test]
     fn test_classes_on_sibling_elements() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
-        html.open_normal("p");
+        html.open("p", false);
         html.class("first");
         html.class("item");
-        html.open_normal("p");
+        html.open("p", false);
         html.class("second");
         html.class("item");
-        html.open_normal("p");
+        html.open("p", false);
         html.class("third");
         html.class("item");
         html.end_children();
@@ -441,7 +439,7 @@ mod tests {
     #[test]
     fn test_no_classes_no_class_attribute() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.attr("id", "test");
         assert_eq!(html.into_string(), r#"<div id="test"></div>"#);
     }
@@ -449,7 +447,7 @@ mod tests {
     #[test]
     fn test_classes_with_special_characters() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("foo<bar");
         html.class("baz>qux");
         html.class(r#"test"quote"#);
@@ -464,7 +462,7 @@ mod tests {
     #[test]
     fn test_classes_on_element_with_text_children() {
         let mut html = InternalBuffer::new();
-        html.open_normal("p");
+        html.open("p", false);
         html.class("paragraph");
         html.class("bold");
         html.start_children();
@@ -479,16 +477,16 @@ mod tests {
     #[test]
     fn test_classes_on_deeply_nested_elements() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("level-1");
         html.start_children();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("level-2");
         html.start_children();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("level-3");
         html.start_children();
-        html.open_normal("span");
+        html.open("span", false);
         html.class("level-4");
         html.end_children();
         html.end_children();
@@ -502,16 +500,16 @@ mod tests {
     #[test]
     fn test_void_element_classes_with_siblings() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
-        html.open_void("input");
+        html.open("input", true);
         html.class("input-1");
         html.attr("type", "text");
-        html.open_void("input");
+        html.open("input", true);
         html.class("input-2");
         html.class("required");
         html.attr("type", "password");
-        html.open_normal("button");
+        html.open("button", false);
         html.class("btn");
         html.class("btn-primary");
         html.end_children();
@@ -525,7 +523,7 @@ mod tests {
     #[test]
     fn test_classes_finish_on_start_children() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("parent");
         html.start_children();
         html.push_text("content");
@@ -536,9 +534,9 @@ mod tests {
     #[test]
     fn test_classes_finish_on_close_tag() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.start_children();
-        html.open_void("input");
+        html.open("input", true);
         html.class("form-input");
         // The void element should close and flush classes
         html.end_children();
@@ -551,7 +549,7 @@ mod tests {
     #[test]
     fn test_empty_class_strings() {
         let mut html = InternalBuffer::new();
-        html.open_normal("div");
+        html.open("div", false);
         html.class("");
         html.class("valid");
         html.class("");

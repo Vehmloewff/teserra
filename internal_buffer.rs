@@ -12,7 +12,7 @@ enum CurrentTag {
 
 /// HTML builder for constructing HTML strings with a fluent API
 /// This uses a streaming approach where each operation directly mutates the buffer
-pub struct HtmlBuffer {
+pub struct InternalBuffer {
     /// This be where all the html is written
     buffer: String,
     /// The tag does not have children
@@ -21,7 +21,7 @@ pub struct HtmlBuffer {
     parent_tag_stack: Vec<String>,
 }
 
-impl HtmlBuffer {
+impl InternalBuffer {
     pub fn new() -> Self {
         Self {
             buffer: String::new(),
@@ -109,6 +109,13 @@ impl HtmlBuffer {
         self.buffer.push('>');
     }
 
+    pub fn as_str(&mut self) -> &str {
+        // Close any remaining unclosed tag
+        self.close_current_tag();
+
+        &self.buffer
+    }
+
     pub fn into_string(mut self) -> String {
         // Close any remaining unclosed tag
         self.close_current_tag();
@@ -146,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_simple_normal_element() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.attr("class", "container");
         assert_eq!(html.into_string(), r#"<div class="container"></div>"#);
@@ -154,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_void_element_with_attr() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_void("input");
         html.attr("value", "hello");
         assert_eq!(html.into_string(), r#"<input value="hello">"#);
@@ -162,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_nested_children() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.start_children();
         html.open_void("input");
@@ -173,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_text_content() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.start_children();
         html.push_text("Hello, world!");
@@ -183,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_multiple_children() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.start_children();
         html.open_normal("h1");
@@ -203,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_multiple_attributes() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.attr("style", "color: red; font-size: 16px;");
         assert_eq!(
@@ -214,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_auto_close_siblings() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.start_children();
         // These siblings should auto-close each other
@@ -233,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_void_element_auto_close() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.start_children();
         html.open_void("input");
@@ -251,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_escape_html_in_text() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.start_children();
         html.push_text("<script>alert('xss')</script>");
@@ -264,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_escape_attr_value() {
-        let mut html = HtmlBuffer::new();
+        let mut html = InternalBuffer::new();
         html.open_normal("div");
         html.attr("data-value", r#"foo"bar&baz"#);
         assert_eq!(

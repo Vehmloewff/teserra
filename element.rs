@@ -1,13 +1,13 @@
-use crate::{HtmlBuffer, Template};
+use crate::{InternalBuffer, Template};
 
 /// Represents an HTML element that is being built
 /// This holds a mutable reference to the Html buffer and writes to it directly
 pub struct Element<'a> {
-    buffer: &'a mut HtmlBuffer,
+    buffer: &'a mut InternalBuffer,
 }
 
 impl<'a> Element<'a> {
-    pub fn new(html: &'a mut HtmlBuffer) -> Self {
+    pub fn new(html: &'a mut InternalBuffer) -> Self {
         Self { buffer: html }
     }
 

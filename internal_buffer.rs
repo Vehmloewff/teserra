@@ -13,8 +13,10 @@ enum CurrentTag {
 /// HTML builder for constructing HTML strings with a fluent API
 /// This uses a streaming approach where each operation directly mutates the buffer
 pub struct InternalBuffer {
-    /// This be where all the html is written
+    /// This be where all the html is written to
     buffer: String,
+    /// This is where all the classes for the current element are stored
+    current_classes: String,
     /// The tag does not have children
     current_tag: CurrentTag,
     /// Stack of tags for all the elements with children
@@ -25,6 +27,7 @@ impl InternalBuffer {
     pub fn new() -> Self {
         Self {
             buffer: String::new(),
+            current_classes: String::new(),
             current_tag: CurrentTag::None,
             parent_tag_stack: Vec::new(),
         }
@@ -41,9 +44,20 @@ impl InternalBuffer {
                 self.buffer.push('>');
             }
             CurrentTag::Void => {
+                self.finish_classes();
                 self.buffer.push('>');
             }
             CurrentTag::None => {}
+        }
+    }
+
+    fn finish_classes(&mut self) {
+        if !self.current_classes.is_empty() {
+            self.buffer.push(' ');
+            self.buffer.push_str("class=\"");
+            escape_attr_into(&mut self.buffer, &self.current_classes);
+            self.buffer.push('"');
+            self.current_classes.clear();
         }
     }
 
@@ -70,11 +84,20 @@ impl InternalBuffer {
         self.buffer.push('"');
     }
 
+    pub fn class(&mut self, class: &str) {
+        if self.current_classes.len() != 0 {
+            self.current_classes.push(' ');
+        }
+
+        self.current_classes.push_str(class)
+    }
+
     pub fn start_children(&mut self) {
         let current_tag = replace(&mut self.current_tag, CurrentTag::None);
 
         match current_tag {
             CurrentTag::Normal(tag) => {
+                self.finish_classes();
                 self.buffer.push('>');
                 self.parent_tag_stack.push(tag);
             }

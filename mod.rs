@@ -2,7 +2,7 @@ mod element;
 mod event_listeners;
 mod global_attributes;
 mod internal_buffer;
-mod tags;
+mod tag;
 mod template;
 
 use internal_buffer::InternalBuffer;

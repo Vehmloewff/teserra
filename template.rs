@@ -1,6 +1,6 @@
 use crate::{
     Element, InternalBuffer,
-    tags::{HtmlDivTag, HtmlTag},
+    tag::{HtmlDivTag, HtmlTag},
 };
 
 pub struct Template<'a> {

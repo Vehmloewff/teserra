@@ -1,8 +1,7 @@
+use log::error;
 use std::marker::PhantomData;
 
-use log::error;
-
-use crate::{InternalBuffer, Template, tags::HtmlTag};
+use super::{InternalBuffer, Template, tag::HtmlTag};
 
 pub trait ElementAttributor {
     fn attr(self, name: &str, value: &str) -> Self;

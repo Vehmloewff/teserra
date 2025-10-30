@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, warn};
 use std::mem::replace;
 
 enum CurrentTag {
@@ -38,6 +38,7 @@ impl InternalBuffer {
 
         match tag {
             CurrentTag::Normal(tag) => {
+                self.finish_classes();
                 self.buffer.push('>');
                 self.buffer.push_str("</");
                 self.buffer.push_str(&tag);
@@ -77,6 +78,11 @@ impl InternalBuffer {
     }
 
     pub fn attr(&mut self, name: &str, value: &str) {
+        if name.is_empty() {
+            warn!("tried to add html attribute with an empty name; skipping");
+            return;
+        }
+
         self.buffer.push_str(" ");
         self.buffer.push_str(name);
         self.buffer.push_str("=\"");
@@ -85,8 +91,13 @@ impl InternalBuffer {
     }
 
     pub fn class(&mut self, class: &str) {
-        if self.current_classes.len() != 0 {
+        if !self.current_classes.is_empty() {
             self.current_classes.push(' ');
+        }
+
+        if class.is_empty() {
+            warn!("tried to add html class with an empty name; skipping");
+            return;
         }
 
         self.current_classes.push_str(class)
@@ -301,5 +312,250 @@ mod tests {
             html.into_string(),
             r#"<div data-value="foo&quot;bar&amp;baz"></div>"#
         );
+    }
+
+    #[test]
+    fn test_single_class_on_normal_element() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("container");
+        assert_eq!(html.into_string(), r#"<div class="container"></div>"#);
+    }
+
+    #[test]
+    fn test_multiple_classes_on_normal_element() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("container");
+        html.class("active");
+        html.class("primary");
+        assert_eq!(
+            html.into_string(),
+            r#"<div class="container active primary"></div>"#
+        );
+    }
+
+    #[test]
+    fn test_single_class_on_void_element() {
+        let mut html = InternalBuffer::new();
+        html.open_void("input");
+        html.class("form-control");
+        assert_eq!(html.into_string(), r#"<input class="form-control">"#);
+    }
+
+    #[test]
+    fn test_multiple_classes_on_void_element() {
+        let mut html = InternalBuffer::new();
+        html.open_void("input");
+        html.class("form-control");
+        html.class("input-lg");
+        html.class("required");
+        assert_eq!(
+            html.into_string(),
+            r#"<input class="form-control input-lg required">"#
+        );
+    }
+
+    #[test]
+    fn test_classes_with_attributes_before() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.attr("id", "main");
+        html.attr("data-value", "test");
+        html.class("container");
+        html.class("active");
+        assert_eq!(
+            html.into_string(),
+            r#"<div id="main" data-value="test" class="container active"></div>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_with_attributes_after() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("container");
+        html.class("active");
+        html.attr("id", "main");
+        html.attr("data-value", "test");
+        assert_eq!(
+            html.into_string(),
+            r#"<div id="main" data-value="test" class="container active"></div>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_mixed_with_attributes() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.attr("id", "main");
+        html.class("container");
+        html.attr("data-value", "test");
+        html.class("active");
+        html.attr("role", "main");
+
+        assert_eq!(
+            html.into_string(),
+            r#"<div id="main" data-value="test" role="main" class="container active"></div>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_on_nested_elements() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("outer");
+        html.start_children();
+        html.open_normal("span");
+        html.class("inner");
+        html.class("highlight");
+        html.end_children();
+
+        assert_eq!(
+            html.into_string(),
+            r#"<div class="outer"><span class="inner highlight"></span></div>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_on_sibling_elements() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.start_children();
+        html.open_normal("p");
+        html.class("first");
+        html.class("item");
+        html.open_normal("p");
+        html.class("second");
+        html.class("item");
+        html.open_normal("p");
+        html.class("third");
+        html.class("item");
+        html.end_children();
+        assert_eq!(
+            html.into_string(),
+            r#"<div><p class="first item"></p><p class="second item"></p><p class="third item"></p></div>"#
+        );
+    }
+
+    #[test]
+    fn test_no_classes_no_class_attribute() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.attr("id", "test");
+        assert_eq!(html.into_string(), r#"<div id="test"></div>"#);
+    }
+
+    #[test]
+    fn test_classes_with_special_characters() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("foo<bar");
+        html.class("baz>qux");
+        html.class(r#"test"quote"#);
+        html.class("amp&ersand");
+
+        assert_eq!(
+            html.into_string(),
+            r#"<div class="foo&lt;bar baz&gt;qux test&quot;quote amp&amp;ersand"></div>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_on_element_with_text_children() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("p");
+        html.class("paragraph");
+        html.class("bold");
+        html.start_children();
+        html.push_text("Hello, world!");
+        html.end_children();
+        assert_eq!(
+            html.into_string(),
+            r#"<p class="paragraph bold">Hello, world!</p>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_on_deeply_nested_elements() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("level-1");
+        html.start_children();
+        html.open_normal("div");
+        html.class("level-2");
+        html.start_children();
+        html.open_normal("div");
+        html.class("level-3");
+        html.start_children();
+        html.open_normal("span");
+        html.class("level-4");
+        html.end_children();
+        html.end_children();
+        html.end_children();
+        assert_eq!(
+            html.into_string(),
+            r#"<div class="level-1"><div class="level-2"><div class="level-3"><span class="level-4"></span></div></div></div>"#
+        );
+    }
+
+    #[test]
+    fn test_void_element_classes_with_siblings() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.start_children();
+        html.open_void("input");
+        html.class("input-1");
+        html.attr("type", "text");
+        html.open_void("input");
+        html.class("input-2");
+        html.class("required");
+        html.attr("type", "password");
+        html.open_normal("button");
+        html.class("btn");
+        html.class("btn-primary");
+        html.end_children();
+
+        assert_eq!(
+            html.into_string(),
+            r#"<div><input type="text" class="input-1"><input type="password" class="input-2 required"><button class="btn btn-primary"></button></div>"#
+        );
+    }
+
+    #[test]
+    fn test_classes_finish_on_start_children() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("parent");
+        html.start_children();
+        html.push_text("content");
+        html.end_children();
+        assert_eq!(html.into_string(), r#"<div class="parent">content</div>"#);
+    }
+
+    #[test]
+    fn test_classes_finish_on_close_tag() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.start_children();
+        html.open_void("input");
+        html.class("form-input");
+        // The void element should close and flush classes
+        html.end_children();
+        assert_eq!(
+            html.into_string(),
+            r#"<div><input class="form-input"></div>"#
+        );
+    }
+
+    #[test]
+    fn test_empty_class_strings() {
+        let mut html = InternalBuffer::new();
+        html.open_normal("div");
+        html.class("");
+        html.class("valid");
+        html.class("");
+
+        assert_eq!(html.into_string(), r#"<div class="valid "></div>"#);
     }
 }

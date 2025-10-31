@@ -11,7 +11,7 @@ use internal_buffer::InternalBuffer;
 pub use element::Element;
 pub use event_listeners::EventListeners;
 pub use htmx_attributes::*;
-pub use standard_atrributes::GlobalAttributes;
+pub use standard_atrributes::*;
 pub use tag::*;
 pub use template::Template;
 

@@ -1,5 +1,6 @@
 mod element;
 mod event_listeners;
+mod htmx_attributes;
 mod internal_buffer;
 mod standard_atrributes;
 mod tag;
@@ -9,6 +10,7 @@ use internal_buffer::InternalBuffer;
 
 pub use element::Element;
 pub use event_listeners::EventListeners;
+pub use htmx_attributes::*;
 pub use standard_atrributes::GlobalAttributes;
 pub use tag::*;
 pub use template::Template;
@@ -49,6 +51,7 @@ mod test {
         t.div().id("wrapper").children(|t| {
             t.button().text("Click me!");
             t.span().text("Click me!");
+            t.input().oninput("alert('dude! you typed!')");
         });
 
         assert_eq!(

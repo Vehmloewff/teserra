@@ -1,7 +1,7 @@
 mod element;
 mod event_listeners;
-mod global_attributes;
 mod internal_buffer;
+mod standard_atrributes;
 mod tag;
 mod template;
 
@@ -9,7 +9,8 @@ use internal_buffer::InternalBuffer;
 
 pub use element::Element;
 pub use event_listeners::EventListeners;
-pub use global_attributes::GlobalAttributes;
+pub use standard_atrributes::GlobalAttributes;
+pub use tag::*;
 pub use template::Template;
 
 pub struct HtmlBuffer {

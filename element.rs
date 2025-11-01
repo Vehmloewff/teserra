@@ -14,12 +14,12 @@ pub struct Element<'a, Tag> {
     _marker: PhantomData<Tag>,
 }
 
-impl<'a, Tag> Element<'a, Tag>
+impl<Tag> Element<'_, Tag>
 where
     Tag: HtmlTag,
 {
-    pub fn new(html: &'a mut InternalBuffer) -> Self {
-        Self {
+    pub fn new<'a>(html: &'a mut InternalBuffer) -> Element<'a, Tag> {
+        Element {
             buffer: html,
             _marker: PhantomData,
         }

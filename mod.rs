@@ -56,7 +56,7 @@ mod test {
 
         assert_eq!(
             buffer.as_str(),
-            "<div id=\"wrapper\"><button>Click me!</button><span>Click me!</span></div>"
+            "<div id=\"wrapper\"><button>Click me!</button><span>Click me!</span><input oninput=\"alert('dude! you typed!')\"></div>"
         );
     }
 }
